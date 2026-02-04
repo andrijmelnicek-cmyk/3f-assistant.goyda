@@ -393,7 +393,7 @@ async function send() {
 
   let data;
   try {
-    const res = await fetch("https://victory-enrolled-ent-tile.trycloudflare.com/", {
+    const res = await fetch("https://victory-enrolled-ent-tile.trycloudflare.com/v1/chat/completions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
