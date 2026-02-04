@@ -6,8 +6,9 @@
 
 <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 <link rel="stylesheet"
- href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/github-dark.min.css">
-<script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/highlight.min.js"></script>
+ href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+
 
 <style>
 * { box-sizing: border-box; font-family: monospace; }
@@ -364,38 +365,49 @@ function autoTitleFrom(text) {
 }
 
 async function send() {
-  const res = await fetch("https://random-shit.trycloudflare.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      model: currentModel,
-      messages: chats[currentId].history
-    })
-  });
+  if (!currentId) return;
 
-}
+  const ta = document.getElementById("prompt");
+  const text = ta.value.trim();
+  if (!text) return;
+
+  ta.value = "";
+  addUser(text);
+
+  const chatObj = chats[currentId];
+  chatObj.history.push({ role:"user", content:text });
+
+  if (chatObj.title === "Chat") {
+    chatObj.title = autoTitleFrom(text);
+    renderTabs();
+  }
 
   save();
 
+  const chat = document.getElementById("chat");
   const thinking = document.createElement("div");
   thinking.className = "msg bot";
   thinking.textContent = "thinking...";
   chat.appendChild(thinking);
   chat.scrollTop = chat.scrollHeight;
 
- fetch("https://victory-enrolled-ent-tile.trycloudflare.com/", {
+  let data;
+  try {
+    const res = await fetch("https://victory-enrolled-ent-tile.trycloudflare.com/", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: currentModel,
+        messages: chatObj.history
+      })
+    });
+    data = await res.json();
+  } catch (e) {
+    thinking.textContent = "API ERROR";
+    console.error(e);
+    return;
+  }
 
-    method:"POST",
-    headers:{ "Content-Type":"application/json" },
-    body: JSON.stringify({
-      model: currentModel,
-      input: buildPrompt()
-    })
-  });
-
-  const data = await res.json();
   thinking.remove();
 
   let reply = "ERROR";
@@ -403,11 +415,12 @@ async function send() {
     reply = data.choices[0].message.content;
   }
 
-
   chatObj.history.push({ role:"assistant", content:reply });
   save();
   addBot(reply);
   chat.scrollTop = chat.scrollHeight;
+}
+
 
 
 /* ===== ACTIONS ===== */
