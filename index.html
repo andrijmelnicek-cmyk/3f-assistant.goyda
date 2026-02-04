@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<title>LM Studio Chat</title>
+
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<link rel="stylesheet"
+ href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/github-dark.min.css">
+<script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/highlight.min.js"></script>
+
+<style>
+* { box-sizing: border-box; font-family: monospace; }
+
+body {
+  margin: 0;
+  height: 100vh;
+  display: flex;
+  background: #0e0e0e;
+  color: #eee;
+}
+
+/* SIDEBAR */
+#sidebar {
+  width: 260px;
+  background: #141414;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid #333;
+}
+
+#sidebar button, #modelSelect {
+  margin: 5px;
+  padding: 8px;
+  background: #111;
+  color: #0f0;
+  border: 1px solid #333;
+  cursor: pointer;
+}
+
+#tabs {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.tab {
+  padding: 8px;
+  border-bottom: 1px solid #222;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}
+
+.tab.active {
+  background: #003300;
+}
+
+.tab-title {
+  flex: 1;
+}
+
+.tab-close {
+  color: #f55;
+  font-weight: bold;
+  cursor: pointer;
+}
+.tab-close:hover { color: red; }
+
+/* MAIN */
+#main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+#chat {
+  flex: 1;
+  padding: 15px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.msg {
+  max-width: 70%;
+  padding: 10px;
+  border-radius: 10px;
+  white-space: pre-wrap;
+}
+
+.user {
+  align-self: flex-end;
+  background: #005500;
+}
+
+.bot {
+  align-self: flex-start;
+  background: #1a1a1a;
+  border: 1px solid #333;
+}
+
+/* INPUT */
+#inputBar {
+  display: flex;
+  padding: 10px;
+  border-top: 1px solid #333;
+  background: #000;
+}
+
+#prompt {
+  flex: 1;
+  resize: none;
+  height: 60px;
+  background: #111;
+  color: #0f0;
+  border: 1px solid #333;
+  padding: 10px;
+}
+
+#inputBar button {
+  margin-left: 5px;
+  background: #0f0;
+  border: none;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.system {
+  align-self: center;
+  font-size: 12px;
+  color: #aaa;
+  margin: 10px 0;
+  position: relative;
+}
+
+.system::before,
+.system::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  width: 120px;
+  height: 1px;
+  background: #333;
+}
+
+.system::before { right: 100%; margin-right: 10px; }
+.system::after  { left: 100%;  margin-left: 10px; }
+
+#topBar {
+  display: none;
+  background: #000;
+  border-bottom: 1px solid #333;
+}
+
+#menuBtn {
+  background: none;
+  border: none;
+  color: #0f0;
+  font-size: 22px;
+  padding: 10px;
+  cursor: pointer;
+}
+
+/* ===== MOBILE ===== */
+@media (max-width: 768px) {
+  body {
+    flex-direction: column;
+  }
+
+  #sidebar {
+    position: fixed;
+    z-index: 10;
+    left: -260px;
+    top: 0;
+    height: 100vh;
+    transition: left 0.25s ease;
+  }
+
+  #sidebar.open {
+    left: 0;
+  }
+
+  #topBar {
+    display: flex;
+  }
+
+  #main {
+    flex: 1;
+  }
+
+  .msg {
+    max-width: 85%;
+  }
+
+  .system::before,
+  .system::after {
+    width: 60px;
+  }
+}
+
+</style>
+</head>
+
+<body>
+
+<div id="sidebar">
+  <button onclick="newChat()">➕ NEW CHAT</button>
+
+  <select id="modelSelect">
+    <option value="meta-llama-3.1-8b-instruct">LLaMA 3.1 8B</option>
+    <option value="google/gemma-3-1b">Gemma 3 1B</option>
+    <!-- <option value="qwen2.5-14b-instruct">Qwen 14B</option> -->
+  </select>
+
+  <div id="tabs"></div>
+</div>
+
+<div id="main">
+
+  <div id="topBar">
+    <button id="menuBtn">☰</button>
+  </div>
+
+  <div id="chat"></div>
+
+  <div id="inputBar">
+    <textarea id="prompt" placeholder="Simple text here..."></textarea>
+    <button onclick="send()">SEND</button>
+    <button onclick="clearChat()">CLEAR</button>
+  </div>
+</div>
+
+<script>
+marked.setOptions({
+  highlight: (code, lang) =>
+    hljs.getLanguage(lang)
+      ? hljs.highlight(code, { language: lang }).value
+      : hljs.highlightAuto(code).value
+});
+
+/* ===== DATA ===== */
+let chats = JSON.parse(localStorage.getItem("lm_chats")) || {};
+let currentId = localStorage.getItem("lm_current") || null;
+let currentModel = localStorage.getItem("lm_model")
+  || "meta-llama-3.1-8b-instruct";
+
+/* ===== SAVE ===== */
+function save() {
+  localStorage.setItem("lm_chats", JSON.stringify(chats));
+  localStorage.setItem("lm_current", currentId);
+  localStorage.setItem("lm_model", currentModel);
+}
+
+/* ===== CHAT MGMT ===== */
+function newChat() {
+  const id = "chat_" + Date.now();
+  chats[id] = {
+    title: "Chat",
+    history: [
+      { role:"system", content:"Ти корисний і прямий асистент." }
+    ]
+  };
+  currentId = id;
+  save();
+  renderTabs();
+  renderChat();
+}
+
+function deleteChat(id) {
+  delete chats[id];
+  if (currentId === id) {
+    const keys = Object.keys(chats);
+    currentId = keys.length ? keys[0] : null;
+    if (!currentId) newChat();
+  }
+  save();
+  renderTabs();
+  renderChat();
+}
+
+/* ===== UI ===== */
+function renderTabs() {
+  const tabs = document.getElementById("tabs");
+  tabs.innerHTML = "";
+
+  for (const id in chats) {
+    const div = document.createElement("div");
+    div.className = "tab" + (id === currentId ? " active" : "");
+
+    const title = document.createElement("div");
+    title.className = "tab-title";
+    title.textContent = chats[id].title;
+    title.onclick = () => {
+      currentId = id;
+      save();
+      renderTabs();
+      renderChat();
+    };
+
+    const close = document.createElement("div");
+    close.className = "tab-close";
+    close.textContent = "✖";
+    close.onclick = e => {
+      e.stopPropagation();
+      deleteChat(id);
+    };
+
+    div.appendChild(title);
+    div.appendChild(close);
+    tabs.appendChild(div);
+  }
+}
+
+function renderChat() {
+  const chat = document.getElementById("chat");
+  chat.innerHTML = "";
+  if (!currentId) return;
+
+  for (const m of chats[currentId].history) {
+  if (m.role === "user") addUser(m.content);
+  if (m.role === "assistant") addBot(m.content);
+  if (m.role === "system") addSystem(m.content);
+  }
+
+  chat.scrollTop = chat.scrollHeight;
+
+}
+
+function addSystem(text) {
+  const d = document.createElement("div");
+  d.className = "system";
+  d.textContent = text;
+  chat.appendChild(d);
+}
+
+
+function addUser(text) {
+  const d = document.createElement("div");
+  d.className = "msg user";
+  d.textContent = text;
+  chat.appendChild(d);
+}
+
+function addBot(md) {
+  const d = document.createElement("div");
+  d.className = "msg bot";
+  d.innerHTML = marked.parse(md);
+  chat.appendChild(d);
+  d.querySelectorAll("pre code").forEach(el => hljs.highlightElement(el));
+}
+
+/* ===== LOGIC ===== */
+function buildPrompt() {
+  return chats[currentId].history
+    .map(m => `${m.role.toUpperCase()}: ${m.content}`)
+    .join("\n");
+}
+
+function autoTitleFrom(text) {
+  return text.replace(/\n/g," ").slice(0,30).trim() + (text.length>30?"…":"");
+}
+
+async function send() {
+  const res = await fetch("https://random-shit.trycloudflare.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      model: currentModel,
+      messages: chats[currentId].history
+    })
+  });
+
+}
+
+  save();
+
+  const thinking = document.createElement("div");
+  thinking.className = "msg bot";
+  thinking.textContent = "thinking...";
+  chat.appendChild(thinking);
+  chat.scrollTop = chat.scrollHeight;
+
+ fetch("https://victory-enrolled-ent-tile.trycloudflare.com/", {
+
+    method:"POST",
+    headers:{ "Content-Type":"application/json" },
+    body: JSON.stringify({
+      model: currentModel,
+      input: buildPrompt()
+    })
+  });
+
+  const data = await res.json();
+  thinking.remove();
+
+  let reply = "ERROR";
+  if (data.choices && data.choices[0]) {
+    reply = data.choices[0].message.content;
+  }
+
+
+  chatObj.history.push({ role:"assistant", content:reply });
+  save();
+  addBot(reply);
+  chat.scrollTop = chat.scrollHeight;
+
+
+/* ===== ACTIONS ===== */
+function clearChat() {
+  if (!currentId) return;
+  chats[currentId].history = chats[currentId].history.slice(0,1);
+  chats[currentId].title = "Chat";
+  save();
+  renderTabs();
+  renderChat();
+}
+
+/* ===== EVENTS ===== */
+document.getElementById("prompt").addEventListener("keydown", e => {
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    send();
+  }
+});
+
+const modelSelect = document.getElementById("modelSelect");
+modelSelect.value = currentModel;
+modelSelect.onchange = () => {
+  const old = currentModel;
+  currentModel = modelSelect.value;
+  save();
+
+  if (currentId && old !== currentModel) {
+    chats[currentId].history.push({
+      role: "system",
+      content: `Модель змінена на ${currentModel}`
+    });
+    save();
+    renderChat();
+  }
+};
+
+/* ===== START ===== */
+if (!currentId || !chats[currentId]) {
+  newChat();
+} else {
+  renderTabs();
+  renderChat();
+}
+
+const sidebar = document.getElementById("sidebar");
+const menuBtn = document.getElementById("menuBtn");
+
+menuBtn.onclick = () => {
+  sidebar.classList.toggle("open");
+};
+
+// Закривати сайдбар після вибору чату (на мобілі)
+const oldRenderTabs = renderTabs;
+renderTabs = function () {
+  oldRenderTabs();
+  if (window.innerWidth <= 768) {
+    sidebar.classList.remove("open");
+  }
+};
+
+</script>
+
+</body>
+</html>
