@@ -328,11 +328,13 @@ function renderChat() {
 }
 
 function addSystem(text) {
+  const chat = document.getElementById("chat");
   const d = document.createElement("div");
   d.className = "system";
   d.textContent = text;
   chat.appendChild(d);
 }
+
 
 
 function addUser(text) {
