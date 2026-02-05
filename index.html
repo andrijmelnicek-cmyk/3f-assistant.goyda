@@ -164,7 +164,7 @@ body {
 }
 
 /* ===== MOBILE ===== */
-@media (max-width: 768px) {
+@media (max-width: 1080px) {
   body {
     flex-direction: column;
   }
@@ -393,7 +393,7 @@ async function send() {
 
   let data;
   try {
-    const res = await fetch("https://victory-enrolled-ent-tile.trycloudflare.com/v1/chat/completions", {
+    const res = await fetch("https://lakes-halifax-arbor-crop.trycloudflare.com/v1/chat/completions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
