@@ -472,7 +472,8 @@ if (!currentId || !chats[currentId]) {
 const sidebar = document.getElementById("sidebar");
 const menuBtn = document.getElementById("menuBtn");
 
-menuBtn.onclick = () => {
+menuBtn.onclick = (e) => {
+  e.stopPropagation(); // ВАЖЛИВО, блять
   sidebar.classList.toggle("open");
 };
 
@@ -484,6 +485,18 @@ renderTabs = function () {
     sidebar.classList.remove("open");
   }
 };
+
+// Закривати сайдбар при кліку поза ним (мобілка)
+document.getElementById("main").addEventListener("click", () => {
+  if (window.innerWidth <= 1080 && sidebar.classList.contains("open")) {
+    sidebar.classList.remove("open");
+  }
+});
+
+// Щоб клік по самому сайдбару не закривав його
+sidebar.addEventListener("click", e => {
+  e.stopPropagation();
+});
 
 </script>
 
