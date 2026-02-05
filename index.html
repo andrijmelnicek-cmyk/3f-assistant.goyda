@@ -213,7 +213,7 @@ body {
   <select id="modelSelect">
     <option value="meta-llama-3.1-8b-instruct">LLaMA 3.1 8B</option>
     <option value="google/gemma-3-1b">Gemma 3 1B</option>
-    <option value="deepseek-r1-distill-qwen-14b-uncensored">DeepSeek R1 14B</option>
+    <!-- <option value="deepseek-r1-distill-qwen-14b-uncensored">DeepSeek R1 14B</option> -->
     <option value="deepseek-r1-distill-qwen-7b-uncensored-i1">DeepSeek R1 7B</option>
     <!-- <option value="qwen2.5-14b-instruct">Qwen 14B</option> -->
   </select>
@@ -397,7 +397,7 @@ async function send() {
 
   let data;
   try {
-    const res = await fetch("https://mat-major-gratuit-zen.trycloudflare.com/v1/chat/completions", {
+    const res = await fetch("https://vernon-virtual-restaurant-indexed.trycloudflare.com/v1/chat/completions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
